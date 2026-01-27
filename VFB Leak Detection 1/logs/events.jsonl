@@ -1,0 +1,40 @@
+{"ts": "2026-01-27T14:37:20+01:00", "type": "startup", "component": "capture_images"}
+{"ts": "2026-01-27T14:37:20+01:00", "type": "mode_change", "mode": "CAPTURE"}
+{"ts": "2026-01-27T14:37:23+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_143723_496.jpg"}
+{"ts": "2026-01-27T14:37:23+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_143723_546.jpg"}
+{"ts": "2026-01-27T14:37:25+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_143725_041.jpg"}
+{"ts": "2026-01-27T14:37:26+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_143726_591.jpg"}
+{"ts": "2026-01-27T14:37:28+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_143728_133.jpg"}
+{"ts": "2026-01-27T14:37:29+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_143729_683.jpg"}
+{"ts": "2026-01-27T14:37:31+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_143731_229.jpg"}
+{"ts": "2026-01-27T15:06:03+01:00", "type": "startup", "component": "capture_images"}
+{"ts": "2026-01-27T15:06:03+01:00", "type": "mode_change", "mode": "CAPTURE"}
+{"ts": "2026-01-27T15:06:06+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150606_090.jpg"}
+{"ts": "2026-01-27T15:06:06+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150606_139.jpg"}
+{"ts": "2026-01-27T15:06:07+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150607_637.jpg"}
+{"ts": "2026-01-27T15:06:09+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150609_139.jpg"}
+{"ts": "2026-01-27T15:06:10+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150610_689.jpg"}
+{"ts": "2026-01-27T15:06:12+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150612_193.jpg"}
+{"ts": "2026-01-27T15:06:13+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150613_740.jpg"}
+{"ts": "2026-01-27T15:06:15+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150615_244.jpg"}
+{"ts": "2026-01-27T15:06:16+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150616_796.jpg"}
+{"ts": "2026-01-27T15:06:18+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150618_299.jpg"}
+{"ts": "2026-01-27T15:06:19+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150619_843.jpg"}
+{"ts": "2026-01-27T15:06:21+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150621_385.jpg"}
+{"ts": "2026-01-27T15:06:22+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150622_933.jpg"}
+{"ts": "2026-01-27T15:06:24+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150624_484.jpg"}
+{"ts": "2026-01-27T15:06:25+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150625_988.jpg"}
+{"ts": "2026-01-27T15:06:27+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150627_499.jpg"}
+{"ts": "2026-01-27T15:06:29+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150629_048.jpg"}
+{"ts": "2026-01-27T15:06:30+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150630_595.jpg"}
+{"ts": "2026-01-27T15:06:32+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150632_097.jpg"}
+{"ts": "2026-01-27T15:06:33+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150633_599.jpg"}
+{"ts": "2026-01-27T15:06:35+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150635_100.jpg"}
+{"ts": "2026-01-27T15:06:36+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150636_617.jpg"}
+{"ts": "2026-01-27T15:06:38+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150638_166.jpg"}
+{"ts": "2026-01-27T15:06:39+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150639_678.jpg"}
+{"ts": "2026-01-27T15:06:41+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150641_225.jpg"}
+{"ts": "2026-01-27T15:06:42+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150642_774.jpg"}
+{"ts": "2026-01-27T15:06:44+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150644_321.jpg"}
+{"ts": "2026-01-27T15:06:45+01:00", "type": "captured_frame", "image_path": "C:\\Users\\micha\\Cursor\\VFB Leak Detection 1\\data\\normal\\normal_20260127_150645_869.jpg"}
+{"ts": "2026-01-27T15:06:46+01:00", "type": "shutdown", "component": "capture_images", "reason": "KeyboardInterrupt"}

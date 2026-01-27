@@ -1,0 +1,75 @@
+# Non-secret configuration (Windows-friendly)
+# Secrets must be provided via environment variables:
+#   - SLACK_WEBHOOK_URL
+#   - SMTP_PASSWORD
+
+camera:
+  index: 0
+  backend: "DSHOW"   # "DSHOW" (recommended on Windows), "MSMF", or "DEFAULT"
+  width: 1280
+  height: 720
+  fps: 30
+
+image:
+  width: 256
+  height: 256
+
+capture:
+  interval_seconds: 1.5
+  jpg_quality: 95
+
+training:
+  batch_size: 16
+  epochs: 30
+  learning_rate: 0.001
+  validation_split: 0.2
+  seed: 42
+  augment:
+    enabled: true
+    rotation: 0.02
+    translation: 0.02
+    contrast: 0.10
+    brightness: 0.10
+
+threshold:
+  percentile: 99.5
+
+monitor:
+  frame_interval_seconds: 1.0
+  consecutive_anomalies: 3
+  alert_cooldown_seconds: 300
+  heartbeat_seconds: 60
+  camera_down_seconds: 30
+
+  # Save diagnostic images for each anomaly (input/reconstruction/heatmap)
+  # Note: input is saved at camera resolution as anomaly_*.jpg; the diagnostic images are at model resolution.
+  save_reconstruction:
+    enabled: true
+    heatmap: true
+
+  # Optional side-by-side panel image: input | reconstruction | heatmap
+  save_compare_image: true
+
+  # Save the resized model-input image (at model resolution) alongside the diagnostic images.
+  save_input_resized: true
+
+  save_context:
+    enabled: false
+    pre_frames: 1
+    post_frames: 1
+
+notify:
+  slack:
+    enabled: true
+    # webhook_url comes from env var SLACK_WEBHOOK_URL
+    webhook_url: ""
+  email:
+    enabled: false
+    smtp_host: "smtp.example.com"
+    smtp_port: 587
+    smtp_user: ""
+    from_addr: ""
+    to_addrs: []
+    use_tls: true
+    # smtp_password comes from env var SMTP_PASSWORD
+    smtp_password: ""
