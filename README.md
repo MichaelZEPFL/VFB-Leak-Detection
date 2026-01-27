@@ -107,5 +107,5 @@ python .\scripts\set_mode.py OFF
 
 ## Notes
 - Threshold is set to the 99.5th percentile of validation reconstruction errors (normal-only).
-- Debounce: anomaly triggers only after N consecutive frames exceed threshold (configurable).
-- Cooldown prevents alert spam.
+- Debounce: anomaly triggers only after 3 consecutive frames exceed threshold (configurable).
+- Cooldown prevents alert spam (Currently set to 300s).
