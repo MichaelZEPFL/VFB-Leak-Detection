@@ -42,8 +42,9 @@ matplotlib.use("Agg")  # noqa: E402
 
 from src.camera import Camera, CameraConfig
 from src.config import ensure_directories, load_config
-from src.data import list_image_files, now_timestamp
+from src.data import apply_roi, list_image_files, now_timestamp
 from src.logging_utils import JsonlLogger
+from src.model import score_from_reconstruction
 
 
 def _rgb01_to_bgr_uint8(rgb01: np.ndarray) -> np.ndarray:
@@ -106,12 +107,19 @@ def _make_panel(
     frame_bgr: np.ndarray,
     image_w: int,
     image_h: int,
+    scoring_cfg: dict,
 ) -> Tuple[np.ndarray, float]:
     x = _preprocess_bgr(frame_bgr, image_w, image_h)  # [1,H,W,3] RGB01
     x_tf = tf.convert_to_tensor(x, dtype=tf.float32)
     xhat_tf = model(x_tf, training=False)
 
-    score_tf = tf.reduce_mean(tf.square(x_tf - xhat_tf), axis=[1, 2, 3])
+    score_tf = score_from_reconstruction(
+        x_tf,
+        xhat_tf,
+        method=str(scoring_cfg.get("method", "mean")),
+        topk_percent=float(scoring_cfg.get("topk_percent", 1.0)),
+        topk_min_pixels=int(scoring_cfg.get("topk_min_pixels", 100)),
+    )
     score = float(score_tf.numpy()[0])
 
     xin = x[0]
@@ -159,6 +167,8 @@ def main() -> None:
     paths = cfg["paths"]
     img_cfg = cfg["image"]
     cam_cfg = cfg["camera"]
+    roi_cfg = dict(cfg.get("roi", {}) or {})
+    scoring_cfg = dict(cfg.get("scoring", {}) or {})
 
     logger = JsonlLogger(Path(paths["logs_dir"]) / "events.jsonl")
     logger.log("startup", component="visualize_reconstruction")
@@ -205,7 +215,14 @@ def main() -> None:
                     logger.log("camera_error", component="visualize_reconstruction", message="Failed to read frame.")
                     continue
 
-                panel, score = _make_panel(model=model, frame_bgr=frame, image_w=image_w, image_h=image_h)
+                frame = apply_roi(frame, roi_cfg)
+                panel, score = _make_panel(
+                    model=model,
+                    frame_bgr=frame,
+                    image_w=image_w,
+                    image_h=image_h,
+                    scoring_cfg=scoring_cfg,
+                )
                 panel = _annotate_panel(panel, title=f"camera_i{i:02d}", score=score)
                 panels.append(panel)
 
@@ -230,7 +247,13 @@ def main() -> None:
                 logger.log("read_error", component="visualize_reconstruction", path=str(p), message="cv2.imread returned None")
                 continue
 
-            panel, score = _make_panel(model=model, frame_bgr=img_bgr, image_w=image_w, image_h=image_h)
+            panel, score = _make_panel(
+                model=model,
+                frame_bgr=img_bgr,
+                image_w=image_w,
+                image_h=image_h,
+                scoring_cfg=scoring_cfg,
+            )
             panel = _annotate_panel(panel, title=p.name, score=score)
             panels.append(panel)
 

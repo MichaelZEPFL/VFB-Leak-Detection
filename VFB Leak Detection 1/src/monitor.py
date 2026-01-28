@@ -25,8 +25,9 @@ import tensorflow as tf
 
 from .camera import Camera, CameraConfig
 from .config import read_mode_file
-from .data import now_timestamp, save_bgr_image
+from .data import apply_roi, now_timestamp, save_bgr_image
 from .logging_utils import JsonlLogger
+from .model import score_from_reconstruction
 from .notify import EmailConfig, Notifier, SlackConfig
 
 
@@ -138,6 +139,8 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
     img_cfg = cfg["image"]
     mon_cfg = cfg["monitor"]
     cam_cfg = cfg["camera"]
+    roi_cfg = dict(cfg.get("roi", {}) or {})
+    scoring_cfg = dict(cfg.get("scoring", {}) or {})
 
     # Set up logger early so we can record artifact/config errors.
     logger = JsonlLogger(Path(paths["logs_dir"]) / "events.jsonl")
@@ -267,6 +270,10 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
         component="monitor",
         threshold=threshold,
         percentile=percentile,
+        scoring_method=str(scoring_cfg.get("method", "mean")),
+        topk_percent=float(scoring_cfg.get("topk_percent", 1.0)),
+        topk_min_pixels=int(scoring_cfg.get("topk_min_pixels", 100)),
+        roi=roi_cfg if roi_cfg else None,
         model_path=str(model_path.resolve()),
         threshold_path=str(threshold_path.resolve()),
     )
@@ -304,16 +311,24 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
             last_ok_frame_ts = now
             camera_down_alert_sent = False
 
+            frame_roi = apply_roi(frame_bgr, roi_cfg)
+
             if ctx_enabled and ctx_pre > 0:
                 # Save a copy to avoid later mutation
-                ctx_buffer.append(frame_bgr.copy())
+                ctx_buffer.append(frame_roi.copy())
 
-            x = _preprocess_frame_bgr(frame_bgr, int(img_cfg["width"]), int(img_cfg["height"]))
+            x = _preprocess_frame_bgr(frame_roi, int(img_cfg["width"]), int(img_cfg["height"]))
             x_tf = tf.convert_to_tensor(x, dtype=tf.float32)
 
             # Single forward pass for both scoring and (optionally) saving recon/heatmap on alert.
             xhat_tf = model(x_tf, training=False)
-            score_tf = tf.reduce_mean(tf.square(x_tf - xhat_tf), axis=[1, 2, 3])
+            score_tf = score_from_reconstruction(
+                x_tf,
+                xhat_tf,
+                method=str(scoring_cfg.get("method", "mean")),
+                topk_percent=float(scoring_cfg.get("topk_percent", 1.0)),
+                topk_min_pixels=int(scoring_cfg.get("topk_min_pixels", 100)),
+            )
             score = float(score_tf.numpy()[0])
 
             is_anom = score > threshold
@@ -365,7 +380,7 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
                 # Save anomalous frame (camera resolution)
                 extra_suffix = f"score{score:.6f}"
                 saved_anom = save_bgr_image(
-                    frame_bgr,
+                    frame_roi,
                     anomalies_dir,
                     prefix="anomaly",
                     jpg_quality=int(cfg["capture"].get("jpg_quality", 95)),
@@ -458,6 +473,7 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
                         ok2, frame2 = camera.read()
                         if not ok2 or frame2 is None:
                             break
+                        frame2 = apply_roi(frame2, roi_cfg)
                         p = save_bgr_image(
                             frame2,
                             anomalies_dir,

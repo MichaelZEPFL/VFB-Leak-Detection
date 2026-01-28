@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from datetime import datetime
-from typing import Iterable, List, Optional
+from typing import Any, Iterable, List, Optional
 import os
 
 import cv2
@@ -13,6 +13,52 @@ import numpy as np
 
 
 IMAGE_EXTS = (".jpg", ".jpeg", ".png")
+
+
+def apply_roi(frame_bgr: np.ndarray, roi_cfg: Optional[dict[str, Any]]) -> np.ndarray:
+    """
+    Apply a rectangular ROI crop to a BGR frame.
+
+    roi_cfg schema:
+      - enabled: bool
+      - units: "relative" (fractions of width/height) or "pixels"
+      - x, y, width, height: numbers
+
+    Returns:
+        Cropped frame if ROI is enabled and valid, otherwise the original frame.
+    """
+    if not roi_cfg or not bool(roi_cfg.get("enabled", False)):
+        return frame_bgr
+
+    h, w = frame_bgr.shape[:2]
+    units = str(roi_cfg.get("units", "relative")).lower()
+
+    def _clamp(val: int, lo: int, hi: int) -> int:
+        return max(lo, min(val, hi))
+
+    try:
+        if units == "pixels":
+            x = int(round(float(roi_cfg.get("x", 0))))
+            y = int(round(float(roi_cfg.get("y", 0))))
+            roi_w = int(round(float(roi_cfg.get("width", w))))
+            roi_h = int(round(float(roi_cfg.get("height", h))))
+        else:
+            x = int(round(float(roi_cfg.get("x", 0.0)) * w))
+            y = int(round(float(roi_cfg.get("y", 0.0)) * h))
+            roi_w = int(round(float(roi_cfg.get("width", 1.0)) * w))
+            roi_h = int(round(float(roi_cfg.get("height", 1.0)) * h))
+    except Exception:
+        return frame_bgr
+
+    x = _clamp(x, 0, max(0, w - 1))
+    y = _clamp(y, 0, max(0, h - 1))
+    roi_w = _clamp(roi_w, 1, w - x)
+    roi_h = _clamp(roi_h, 1, h - y)
+
+    if roi_w <= 0 or roi_h <= 0:
+        return frame_bgr
+
+    return frame_bgr[y : y + roi_h, x : x + roi_w]
 
 
 def now_timestamp() -> str:
