@@ -135,14 +135,25 @@ def build_datasets(
     return train_ds, val_ds, n_train, n_val
 
 
-def compute_errors(model: tf.keras.Model, image_ds: tf.data.Dataset) -> np.ndarray:
+def compute_errors(
+    model: tf.keras.Model,
+    image_ds: tf.data.Dataset,
+    *,
+    scoring_cfg: Dict[str, Any],
+) -> np.ndarray:
     """
     Compute per-image reconstruction errors (MSE).
     image_ds must yield (x, x).
     """
     errors: List[float] = []
     for batch_x, _ in image_ds:
-        batch_scores = score_batch(model, batch_x).numpy().tolist()
+        batch_scores = score_batch(
+            model,
+            batch_x,
+            method=str(scoring_cfg.get("method", "mean")),
+            topk_percent=float(scoring_cfg.get("topk_percent", 1.0)),
+            topk_min_pixels=int(scoring_cfg.get("topk_min_pixels", 100)),
+        ).numpy().tolist()
         errors.extend(batch_scores)
     return np.array(errors, dtype=np.float32)
 
@@ -152,6 +163,7 @@ def train_autoencoder(cfg: Dict[str, Any]) -> Dict[str, Any]:
     train_cfg = cfg["training"]
     img_cfg = cfg["image"]
     threshold_cfg = cfg["threshold"]
+    scoring_cfg = dict(cfg.get("scoring", {}) or {})
 
     # Best-effort reproducibility across runs.
     # (Does not guarantee full determinism on all hardware/backends.)
@@ -194,7 +206,7 @@ def train_autoencoder(cfg: Dict[str, Any]) -> Dict[str, Any]:
         verbose=1,
     )
 
-    val_errors = compute_errors(model, val_ds)
+    val_errors = compute_errors(model, val_ds, scoring_cfg=scoring_cfg)
     percentile = float(threshold_cfg["percentile"])
     threshold = float(np.percentile(val_errors, percentile))
 
@@ -209,6 +221,9 @@ def train_autoencoder(cfg: Dict[str, Any]) -> Dict[str, Any]:
     threshold_obj = {
         "percentile": percentile,
         "threshold": threshold,
+        "scoring_method": str(scoring_cfg.get("method", "mean")),
+        "topk_percent": float(scoring_cfg.get("topk_percent", 1.0)),
+        "topk_min_pixels": int(scoring_cfg.get("topk_min_pixels", 100)),
     }
     threshold_path.write_text(json.dumps(threshold_obj, indent=2), encoding="utf-8")
 
@@ -221,6 +236,9 @@ def train_autoencoder(cfg: Dict[str, Any]) -> Dict[str, Any]:
         "val_error_max": float(val_errors.max()),
         "final_train_loss": float(history.history["loss"][-1]) if history.history.get("loss") else None,
         "final_val_loss": float(history.history["val_loss"][-1]) if history.history.get("val_loss") else None,
+        "scoring_method": str(scoring_cfg.get("method", "mean")),
+        "topk_percent": float(scoring_cfg.get("topk_percent", 1.0)),
+        "topk_min_pixels": int(scoring_cfg.get("topk_min_pixels", 100)),
         "model_path": str(model_path.resolve()),
         "threshold_path": str(threshold_path.resolve()),
     }

@@ -40,21 +40,86 @@ def build_autoencoder(input_shape: Tuple[int, int, int] = (256, 256, 3)) -> tf.k
 
 
 @tf.function
-def reconstruction_error_mse(x: tf.Tensor, x_hat: tf.Tensor) -> tf.Tensor:
+def reconstruction_error_map(x: tf.Tensor, x_hat: tf.Tensor) -> tf.Tensor:
     """
-    Per-image reconstruction error (MSE).
+    Per-pixel reconstruction error map (MSE averaged across channels).
 
     Args:
         x: [B,H,W,C]
         x_hat: [B,H,W,C]
 
     Returns:
-        [B] float32
+        [B,H,W] float32
     """
-    return tf.reduce_mean(tf.square(x - x_hat), axis=[1, 2, 3])
+    return tf.reduce_mean(tf.square(x - x_hat), axis=3)
+
+
+def _score_from_error_map(
+    err_map: tf.Tensor,
+    *,
+    method: str = "mean",
+    topk_percent: float = 1.0,
+    topk_min_pixels: int = 100,
+) -> tf.Tensor:
+    """
+    Convert per-pixel error maps into per-image scores.
+
+    Args:
+        err_map: [B,H,W] float32
+        method: "mean" or "topk"
+        topk_percent: percentage of pixels to average (top-k)
+        topk_min_pixels: minimum number of pixels to include in top-k
+    """
+    method = str(method or "mean").lower()
+    if method != "topk":
+        return tf.reduce_mean(err_map, axis=[1, 2])
+
+    shape = tf.shape(err_map)
+    total_pixels = tf.maximum(shape[1] * shape[2], 1)
+    pct = tf.constant(float(topk_percent) / 100.0, dtype=tf.float32)
+    k_float = tf.cast(total_pixels, tf.float32) * pct
+    k = tf.cast(tf.round(k_float), tf.int32)
+    k = tf.maximum(k, tf.constant(int(topk_min_pixels), dtype=tf.int32))
+    k = tf.minimum(k, total_pixels)
+    k = tf.maximum(k, 1)
+
+    flat = tf.reshape(err_map, [shape[0], total_pixels])
+    topk = tf.math.top_k(flat, k=k, sorted=False).values
+    return tf.reduce_mean(topk, axis=1)
 
 
 @tf.function
-def score_batch(model: tf.keras.Model, x: tf.Tensor) -> tf.Tensor:
+def score_from_reconstruction(
+    x: tf.Tensor,
+    x_hat: tf.Tensor,
+    *,
+    method: str = "mean",
+    topk_percent: float = 1.0,
+    topk_min_pixels: int = 100,
+) -> tf.Tensor:
+    err_map = reconstruction_error_map(x, x_hat)
+    return _score_from_error_map(
+        err_map,
+        method=method,
+        topk_percent=topk_percent,
+        topk_min_pixels=topk_min_pixels,
+    )
+
+
+@tf.function
+def score_batch(
+    model: tf.keras.Model,
+    x: tf.Tensor,
+    *,
+    method: str = "mean",
+    topk_percent: float = 1.0,
+    topk_min_pixels: int = 100,
+) -> tf.Tensor:
     x_hat = model(x, training=False)
-    return reconstruction_error_mse(x, x_hat)
+    return score_from_reconstruction(
+        x,
+        x_hat,
+        method=method,
+        topk_percent=topk_percent,
+        topk_min_pixels=topk_min_pixels,
+    )

@@ -164,6 +164,39 @@ Normal images will be stored in:
 
 ---
 
+## 4b) (Optional) Crop the camera feed (ROI) + Top-K scoring
+
+If the camera sees a lot of irrelevant background, you can crop the feed to focus on the tubing/catch area
+and make anomalies stand out more. These settings live in `config/config.yaml`.
+
+**ROI crop (recommended when the camera sees unused space):**
+
+```yaml
+roi:
+  enabled: true
+  units: "relative"   # fractions of width/height
+  x: 0.10             # left offset (10% of width)
+  y: 0.20             # top offset (20% of height)
+  width: 0.60         # 60% of width
+  height: 0.50        # 50% of height
+```
+
+**Top-K scoring (more sensitive to localized anomalies):**
+
+```yaml
+scoring:
+  method: "topk"
+  topk_percent: 1.0       # average top 1% highest-error pixels
+  topk_min_pixels: 100    # never average fewer than this
+```
+
+When you change **ROI** or **scoring**, you should:
+1) Re-capture normal images (if ROI changed)
+2) Retrain the model
+3) Re-run threshold calibration
+
+---
+
 ## 5) Train (or retrain) the model
 
 Retrain whenever:
@@ -192,7 +225,7 @@ Keep the monitor window open (minimized is fine).
 ### What happens on an alert
 - A Slack (or email) alert is sent (best effort)
 - Files are saved to `data/anomalies/`, typically including:
-  - `anomaly_*.jpg` (camera resolution snapshot)
+  - `anomaly_*.jpg` (camera snapshot, cropped if ROI is enabled)
   - `input_resized_*.jpg` (model input resolution)
   - `reconstruction_*.jpg`
   - `error_heatmap_*.jpg`

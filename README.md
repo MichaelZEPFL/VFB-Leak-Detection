@@ -109,3 +109,4 @@ python .\scripts\set_mode.py OFF
 - Threshold is set to the 99.5th percentile of validation reconstruction errors (normal-only).
 - Debounce: anomaly triggers only after 3 consecutive frames exceed threshold (configurable).
 - Cooldown prevents alert spam (Currently set to 300s).
+- You can crop the camera feed via `roi` in `config/config.yaml`, and switch to `scoring.method: "topk"` to focus on localized anomalies.

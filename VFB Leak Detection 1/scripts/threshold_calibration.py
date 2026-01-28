@@ -44,6 +44,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 from src.config import ensure_directories, load_config
 from src.data import list_image_files, now_timestamp
 from src.logging_utils import JsonlLogger
+from src.model import score_from_reconstruction
 
 
 def _preprocess_path(path: Path, image_w: int, image_h: int) -> Optional[np.ndarray]:
@@ -64,6 +65,7 @@ def _compute_errors(
     image_w: int,
     image_h: int,
     batch_size: int,
+    scoring_cfg: dict,
 ) -> np.ndarray:
     xs: List[np.ndarray] = []
     errors: List[float] = []
@@ -75,7 +77,13 @@ def _compute_errors(
         batch = np.stack(xs, axis=0)  # [B,H,W,3]
         x_tf = tf.convert_to_tensor(batch, dtype=tf.float32)
         xhat_tf = model(x_tf, training=False)
-        batch_err = tf.reduce_mean(tf.square(x_tf - xhat_tf), axis=[1, 2, 3]).numpy().tolist()
+        batch_err = score_from_reconstruction(
+            x_tf,
+            xhat_tf,
+            method=str(scoring_cfg.get("method", "mean")),
+            topk_percent=float(scoring_cfg.get("topk_percent", 1.0)),
+            topk_min_pixels=int(scoring_cfg.get("topk_min_pixels", 100)),
+        ).numpy().tolist()
         errors.extend(batch_err)
         xs = []
 
@@ -122,6 +130,7 @@ def main() -> None:
 
     paths = cfg["paths"]
     img_cfg = cfg["image"]
+    scoring_cfg = dict(cfg.get("scoring", {}) or {})
     model_dir = Path(paths["model_dir"])
     model_path = model_dir / "autoencoder.keras"
 
@@ -162,6 +171,7 @@ def main() -> None:
         image_w=image_w,
         image_h=image_h,
         batch_size=int(args.batch_size),
+        scoring_cfg=scoring_cfg,
     )
 
     if errors.size == 0:
@@ -183,8 +193,8 @@ def main() -> None:
     plt.axvline(computed_thr, linewidth=2, label=f"computed p{percentile}: {computed_thr:.6f}")
     if existing_thr is not None:
         plt.axvline(existing_thr, linestyle="--", linewidth=2, label=f"existing p{existing_pct}: {existing_thr:.6f}")
-    plt.title("Reconstruction error histogram (normal images)")
-    plt.xlabel("Reconstruction error (MSE)")
+    plt.title("Reconstruction score histogram (normal images)")
+    plt.xlabel("Reconstruction score")
     plt.ylabel("Count")
     plt.legend()
     plt.tight_layout()
@@ -199,6 +209,9 @@ def main() -> None:
         "n_images": int(len(errors)),
         "percentile": percentile,
         "computed_threshold": computed_thr,
+        "scoring_method": str(scoring_cfg.get("method", "mean")),
+        "topk_percent": float(scoring_cfg.get("topk_percent", 1.0)),
+        "topk_min_pixels": int(scoring_cfg.get("topk_min_pixels", 100)),
         "mean": float(errors.mean()),
         "std": float(errors.std()),
         "min": float(errors.min()),
@@ -224,7 +237,13 @@ def main() -> None:
             except Exception:
                 # If backup fails, do not overwrite.
                 raise SystemExit(f"Refusing to overwrite threshold.json because backup failed: {backup.resolve()}")
-        new_obj = {"percentile": percentile, "threshold": computed_thr}
+        new_obj = {
+            "percentile": percentile,
+            "threshold": computed_thr,
+            "scoring_method": str(scoring_cfg.get("method", "mean")),
+            "topk_percent": float(scoring_cfg.get("topk_percent", 1.0)),
+            "topk_min_pixels": int(scoring_cfg.get("topk_min_pixels", 100)),
+        }
         thr_file.write_text(json.dumps(new_obj, indent=2), encoding="utf-8")
 
     logger.log(

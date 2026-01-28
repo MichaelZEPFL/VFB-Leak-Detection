@@ -19,7 +19,7 @@ from pathlib import Path
 
 from src.camera import Camera, CameraConfig
 from src.config import ensure_directories, load_config, read_mode_file
-from src.data import save_bgr_image
+from src.data import apply_roi, save_bgr_image
 from src.logging_utils import JsonlLogger
 
 
@@ -34,6 +34,7 @@ def main() -> None:
     paths = cfg["paths"]
     cam_cfg = cfg["camera"]
     cap_cfg = cfg["capture"]
+    roi_cfg = dict(cfg.get("roi", {}) or {})
 
     logger = JsonlLogger(Path(paths["logs_dir"]) / "events.jsonl")
     logger.log("startup", component="capture_images")
@@ -76,6 +77,7 @@ def main() -> None:
                 time.sleep(1.0)
                 continue
 
+            frame = apply_roi(frame, roi_cfg)
             saved = save_bgr_image(frame, out_dir, prefix="normal", jpg_quality=jpg_quality)
             logger.log("captured_frame", image_path=str(saved.resolve()))
             last_capture_ts = now
