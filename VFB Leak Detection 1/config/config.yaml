@@ -13,11 +13,11 @@ camera:
 roi:
   # Crop the camera feed before saving/scoring to ignore irrelevant areas.
   # units: "relative" uses fractions of width/height; "pixels" uses absolute coords.
-  enabled: false
+  enabled: true
   units: "relative"
   x: 0.0
   y: 0.0
-  width: 1.0
+  width: 0.8
   height: 1.0
 
 image:
