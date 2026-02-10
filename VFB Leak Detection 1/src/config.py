@@ -32,6 +32,16 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "height": 720,
         "fps": 30,
     },
+    "roi": {
+        # Crop the camera feed before saving/scoring to ignore irrelevant areas.
+        # units: "relative" uses fractions of width/height; "pixels" uses absolute coords.
+        "enabled": False,
+        "units": "relative",
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1.0,
+        "height": 1.0,
+    },
     "image": {
         "width": 256,
         "height": 256,
@@ -65,6 +75,14 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     },
     "threshold": {
         "percentile": 99.5,
+    },
+    "scoring": {
+        # method: "mean" (global MSE) or "topk" (mean of top-k pixel errors)
+        "method": "mean",
+        # Percentage of highest-error pixels to average when method == "topk"
+        "topk_percent": 1.0,
+        # Minimum number of pixels to include in top-k (guards tiny ROIs)
+        "topk_min_pixels": 100,
     },
     "monitor": {
         "frame_interval_seconds": 1.0,
