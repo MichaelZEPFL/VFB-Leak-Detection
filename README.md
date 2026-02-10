@@ -239,32 +239,57 @@ Edit `config/config.yaml` to adjust:
 
 ```powershell
 # Capture
-python .\scripts\capture_images.py
+python .\scripts\capture_images.py               # Starts the image-capture loop for building your NORMAL dataset.
+                                                 # Only saves frames when state/mode.txt is set to CAPTURE.
+                                                 # Output: data/normal/normal_<timestamp>.jpg (ROI-cropped if ROI is enabled).
 
 # Train
-python .\scripts\train_autoencoder.py
+python .\scripts\train_autoencoder.py            # Trains the convolutional autoencoder on images in data/normal/.
+                                                 # Splits into train/validation, trains the model, then computes the anomaly
+                                                 # threshold from validation NORMAL scores (default p99.5).
+                                                 # Output: model/autoencoder.keras, model/threshold.json, model/stats.json.
 
 # Monitor
-python .\scripts\monitor.py
+python .\scripts\monitor.py                      # Starts unattended monitoring (live USB camera -> model -> anomaly score).
+                                                 # Only runs detection when state/mode.txt is set to MONITOR.
+                                                 # If score exceeds threshold for N consecutive frames, it:
+                                                 #   - saves evidence images to data/anomalies/
+                                                 #   - writes a structured JSONL event to logs/events.jsonl
+                                                 #   - sends a Slack (preferred) or email alert.
 
 # Set mode (writes state/mode.txt)
-python .\scripts\set_mode.py CAPTURE
-python .\scripts\set_mode.py MONITOR
-python .\scripts\set_mode.py OFF
+python .\scripts\set_mode.py CAPTURE             # Arms CAPTURE mode so capture_images.py actually saves frames.
+python .\scripts\set_mode.py MONITOR             # Arms MONITOR mode so monitor.py actually runs detection + alerts.
+python .\scripts\set_mode.py OFF                 # Disarms the system; capture/monitor scripts will idle (no saving/alerts).
 
 # Reconstruction visualization
-python .\scripts\visualize_reconstruction.py --num 16
-python .\scripts\visualize_reconstruction.py --use_camera --num 8
+python .\scripts\visualize_reconstruction.py --num 16              # Loads sample images from disk (typically data/normal/)
+                                                                   # and creates visual panels (input | reconstruction | error/heatmap).
+                                                                   # Useful for sanity-checking what the model “learned” as normal.
+python .\scripts\visualize_reconstruction.py --use_camera --num 8  # Same visualization, but grabs frames live from the USB camera.
+                                                                   # Useful for checking ROI, lighting changes, and reconstruction quality in situ.
 
 # Threshold histogram + stats
-python .\scripts\threshold_calibration.py
+python .\scripts\threshold_calibration.py        # Computes reconstruction scores over a folder of NORMAL images (default: data/normal/) and plots a histogram.
+                                                 # Shows summary stats and the selected threshold percentile (default 99.5th).
+                                                 # (If you add the write flag, it can overwrite model/threshold.json after changing scoring settings like mean vs topk.)
+                                                 # Does NOT modify model/threshold.json unless --write_threshold is used.
+
+# Recompute threshold and overwrite model/threshold.json (creates a backup first)
+python .\scripts\threshold_calibration.py --write_threshold
+                                                 # Overwrites model/threshold.json using the current scoring settings in config.yaml.
+                                                 # If model/threshold.json already exists, it creates:
+                                                 #   model/threshold_backup_<timestamp>.json
 
 # Health check
-python .\scripts\health_check.py --save_snapshot
+python .\scripts\health_check.py --save_snapshot # Runs quick diagnostics before leaving it unattended:
+                                                 # checks camera read, disk space, model + threshold files, and notification config.
+                                                 # Optionally saves a current camera snapshot for debugging.
 
 # Daily summary
-python .\scripts\daily_summary.py
-python .\scripts\daily_summary.py --date 2026-01-27
+python .\scripts\daily_summary.py                # Summarizes recent events from logs/events.jsonl:
+                                                 # counts anomalies, camera errors, and basic run stats (optionally plots).
+python .\scripts\daily_summary.py --date 2026-01-27 # Same summary, but for a specific date (YYYY-MM-DD).
 ```
 
 ---
@@ -288,6 +313,9 @@ Things to try:
 - Increase cooldown: `monitor.alert_cooldown_seconds`.
 - Increase threshold percentile slightly (e.g., 99.7) **only if** you accept reduced sensitivity.
 - Use `run_visualize_reconstruction.bat` and `run_threshold_calibration.bat` to understand what’s happening.
+- If you switch between MSE and Top-K% mode, you will need to overwrite the active threshold (Top-K% typically has much higher error).
+
+**NOTE:** Run `threshold_calibration.py --write_threshold` anytime you change config.yaml scoring settings (e.g., scoring.method or scoring.topk_percent), otherwise you’ll be comparing live scores against a threshold computed in a different scoring “space.”
 
 ### No Slack alerts
 - Ensure `SLACK_WEBHOOK_URL` is set in the environment for the session running the monitor.
