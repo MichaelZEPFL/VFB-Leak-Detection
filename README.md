@@ -24,12 +24,14 @@ It supports the workflow:
 - **Threshold calibration histogram + stats**: `scripts/threshold_calibration.py`
 - **Health check**: `scripts/health_check.py`
 - **Daily summary report**: `scripts/daily_summary.py`
+- **Manual anomaly-style snapshot**: `scripts/capture_anomaly_snapshot.py`
 
 ### No-code launchers (Windows)
 Double-clickable `.bat` files are provided for the common tasks:
 - `run_capture.bat`, `run_train.bat`, `run_monitor.bat`
 - `run_visualize_reconstruction.bat`, `run_threshold_calibration.bat`
 - `run_health_check.bat`, `run_daily_summary.bat`
+- `run_manual_anomaly_snapshot.bat`
 - `set_mode_CAPTURE.bat`, `set_mode_MONITOR.bat`, `set_mode_OFF.bat`
 
 ---
@@ -286,6 +288,12 @@ python .\scripts\threshold_calibration.py --write_threshold
 python .\scripts\health_check.py --save_snapshot # Runs quick diagnostics before leaving it unattended:
                                                  # checks camera read, disk space, model + threshold files, and notification config.
                                                  # Optionally saves a current camera snapshot for debugging.
+
+# Manual anomaly-style snapshot (testing utility)
+python .\scripts\capture_anomaly_snapshot.py    # Captures one current camera frame and writes the same evidence artifact set
+                                                 # used during anomaly alerts: anomaly image, input_resized, reconstruction,
+                                                 # error_heatmap, and compare panel.
+                                                 # Useful for evaluation/testing without waiting for a real anomaly event.
 
 # Daily summary
 python .\scripts\daily_summary.py                # Summarizes recent events from logs/events.jsonl:
