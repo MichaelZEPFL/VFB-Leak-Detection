@@ -84,6 +84,21 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         # Minimum number of pixels to include in top-k (guards tiny ROIs)
         "topk_min_pixels": 100,
     },
+    "heatmap_trigger": {
+        # Second detection trigger based on localized high-error blobs in the
+        # per-pixel reconstruction error heatmap.
+        "enabled": True,
+        # Pixel-error percentile (computed on validation normal pixels) used
+        # to binarize the heatmap into candidate anomaly regions.
+        "pixel_error_percentile": 99.9,
+        # Blob-area percentile (computed on validation normal images from
+        # largest connected component areas) used as anomaly area threshold.
+        "blob_area_percentile": 99.5,
+        # Connectivity for connected components (4 or 8).
+        "connectivity": 8,
+        # Optional floor to avoid tiny noisy blobs triggering alerts.
+        "min_blob_area": 16,
+    },
     "monitor": {
         "frame_interval_seconds": 1.0,
         "consecutive_anomalies": 3,
