@@ -91,10 +91,13 @@ def _rgb01_to_bgr_uint8(rgb01: np.ndarray) -> np.ndarray:
 
 def _make_error_heatmap_bgr(x_rgb01: np.ndarray, xhat_rgb01: np.ndarray) -> np.ndarray:
     """Create a BGR heatmap from per-pixel squared error (averaged across channels)."""
+    # [H,W] float32
     err = np.mean(np.square(x_rgb01 - xhat_rgb01), axis=2)
+    # Normalize for visualization.
     p99 = float(np.percentile(err, 99.0))
     denom = (p99 if p99 > 1e-12 else float(err.max())) + 1e-12
     err_norm = np.clip(err / denom, 0.0, 1.0)
+    # Convert to colormap.
     err_u8 = np.clip(err_norm * 255.0, 0.0, 255.0).astype(np.uint8)
     return cv2.applyColorMap(err_u8, cv2.COLORMAP_JET)
 
@@ -194,7 +197,7 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
         )
         _safe_notify(notifier, logger, "Leak monitor: startup failed", msg)
         raise SystemExit(msg)
-
+    # Load TF model once.
     try:
         model = tf.keras.models.load_model(model_path)
     except Exception as e:
@@ -257,6 +260,11 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
     heartbeat_s = float(mon_cfg.get("heartbeat_seconds", 60))
     camera_down_s = float(mon_cfg.get("camera_down_seconds", 30))
 
+    # Reconstruction/diagnostic image saving (defaults ON if omitted)
+    #
+    # Backward/forward compatible parsing:
+    # - If monitor.save_reconstruction is a bool: treat it as on/off.
+    # - If monitor.save_reconstruction is a dict: read {enabled, heatmap}.
     recon_cfg = mon_cfg.get("save_reconstruction", True)
     if isinstance(recon_cfg, dict):
         save_recon = bool(recon_cfg.get("enabled", True))
@@ -333,11 +341,12 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
             frame_roi = apply_roi(frame_bgr, roi_cfg)
 
             if ctx_enabled and ctx_pre > 0:
+                # Save a copy to avoid later mutation
                 ctx_buffer.append(frame_roi.copy())
 
             x = _preprocess_frame_bgr(frame_roi, int(img_cfg["width"]), int(img_cfg["height"]))
             x_tf = tf.convert_to_tensor(x, dtype=tf.float32)
-
+            
             xhat_tf = model(x_tf, training=False)
             score_tf = score_from_reconstruction(
                 x_tf,
@@ -393,7 +402,7 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
             if should_trigger and cooldown_ok:
                 saved_paths = []
                 event_id = now_timestamp()
-
+                # Save pre-context frames first
                 if ctx_enabled and ctx_pre > 0 and len(ctx_buffer) > 0:
                     for i, f in enumerate(list(ctx_buffer)[-ctx_pre:]):
                         p = save_bgr_image(
@@ -469,7 +478,8 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
                                 panels.append(recon_bgr)
                             if heat_bgr is not None:
                                 panels.append(heat_bgr)
-
+                            
+                            # Guard against unexpected shape mismatches.
                             heights = {p.shape[0] for p in panels}
                             if len(heights) == 1:
                                 compare_bgr = np.concatenate(panels, axis=1)
@@ -490,7 +500,8 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
 
                     except Exception as e:
                         logger.log("reconstruction_save_error", error=str(e))
-
+                
+                # Save post-context frames (best effort)
                 if ctx_enabled and ctx_post > 0:
                     for i in range(ctx_post):
                         time.sleep(max(0.0, frame_interval))
