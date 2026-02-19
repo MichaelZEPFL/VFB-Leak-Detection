@@ -244,6 +244,29 @@ def main() -> None:
             "topk_percent": float(scoring_cfg.get("topk_percent", 1.0)),
             "topk_min_pixels": int(scoring_cfg.get("topk_min_pixels", 100)),
         }
+
+        # Preserve any heatmap-trigger calibration fields if they already exist.
+        existing_obj = {}
+        if thr_file.exists():
+            try:
+                existing_obj = json.loads(thr_file.read_text(encoding="utf-8"))
+                if not isinstance(existing_obj, dict):
+                    existing_obj = {}
+            except Exception:
+                existing_obj = {}
+
+        for k in [
+            "heatmap_trigger_enabled",
+            "pixel_error_threshold",
+            "blob_area_threshold",
+            "pixel_error_percentile",
+            "blob_area_percentile",
+            "connectivity",
+            "min_blob_area",
+        ]:
+            if k in existing_obj:
+                new_obj[k] = existing_obj[k]
+
         thr_file.write_text(json.dumps(new_obj, indent=2), encoding="utf-8")
 
     logger.log(

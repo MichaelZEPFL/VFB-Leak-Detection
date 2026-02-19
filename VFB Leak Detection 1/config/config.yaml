@@ -52,6 +52,18 @@ scoring:
   # Minimum number of pixels to include in top-k (guards tiny ROIs)
   topk_min_pixels: 100
 
+heatmap_trigger:
+  # Second trigger: detect localized high-error blobs in the pixel-wise error map.
+  enabled: true
+  # Percentile on validation normal pixels to set pixel-wise error binarization level.
+  pixel_error_percentile: 99.9
+  # Percentile on validation normal largest-blob areas to set blob trigger threshold.
+  blob_area_percentile: 99.5
+  # Connected-components neighborhood: 4 or 8.
+  connectivity: 8
+  # Optional hard minimum area (pixels) to suppress tiny noisy detections.
+  min_blob_area: 16
+
 monitor:
   frame_interval_seconds: 1.0
   consecutive_anomalies: 3

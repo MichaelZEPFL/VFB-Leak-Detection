@@ -40,7 +40,8 @@ Double-clickable `.bat` files are provided for the common tasks:
 - For each frame, the model produces a reconstruction and a **reconstruction error score** (mean squared error).
 - A threshold is computed as the **99.5th percentile** of reconstruction errors on validation normal images.
 - During monitoring:
-  - A frame is considered “anomalous” if `score > threshold`.
+  - Trigger A (global): a frame is anomalous if `score > threshold`.
+  - Trigger B (spatial heatmap): a frame is anomalous if the largest connected high-error blob in the pixel-wise error map exceeds the calibrated blob-area threshold.
   - Alerts trigger only after **N consecutive** anomalous frames (debounce).
   - Alerts are rate-limited by a **cooldown** period to prevent spam (configurable).
   - When an alert triggers, the system saves:

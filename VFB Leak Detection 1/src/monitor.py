@@ -10,6 +10,7 @@ Features:
 - Optional context frames (pre/post) saved alongside anomaly
 - Camera down detection + alert
 - Save reconstruction + error heatmap for detected anomalies (helps debugging false positives)
+- Optional second trigger from spatially localized heatmap blobs
 """
 from __future__ import annotations
 
@@ -27,20 +28,15 @@ from .camera import Camera, CameraConfig
 from .config import read_mode_file
 from .data import apply_roi, now_timestamp, save_bgr_image
 from .logging_utils import JsonlLogger
-from .model import score_from_reconstruction
+from .model import reconstruction_error_map, score_from_reconstruction
 from .notify import EmailConfig, Notifier, SlackConfig
 
 
-def _load_threshold(model_dir: Path) -> Tuple[float, float]:
+def _load_threshold(model_dir: Path) -> Tuple[float, float, Dict[str, Any]]:
     """Load threshold.json.
 
     Returns:
-        (threshold, percentile)
-
-    Raises:
-        FileNotFoundError: if threshold.json is missing
-        ValueError: if JSON is invalid or values are not numeric/finite
-        KeyError: if required keys are missing
+        (threshold, percentile, extras)
     """
     p = model_dir / "threshold.json"
     if not p.exists():
@@ -66,7 +62,17 @@ def _load_threshold(model_dir: Path) -> Tuple[float, float]:
     if not np.isfinite(threshold) or not np.isfinite(percentile):
         raise ValueError(f"Non-finite threshold.json values in: {p}")
 
-    return threshold, percentile
+    extras = {
+        "heatmap_trigger_enabled": bool(obj.get("heatmap_trigger_enabled", False)),
+        "pixel_error_threshold": obj.get("pixel_error_threshold"),
+        "blob_area_threshold": obj.get("blob_area_threshold"),
+        "pixel_error_percentile": obj.get("pixel_error_percentile"),
+        "blob_area_percentile": obj.get("blob_area_percentile"),
+        "connectivity": obj.get("connectivity"),
+        "min_blob_area": obj.get("min_blob_area"),
+    }
+
+    return threshold, percentile, extras
 
 
 def _preprocess_frame_bgr(frame_bgr: np.ndarray, image_w: int, image_h: int) -> np.ndarray:
@@ -87,16 +93,22 @@ def _make_error_heatmap_bgr(x_rgb01: np.ndarray, xhat_rgb01: np.ndarray) -> np.n
     """Create a BGR heatmap from per-pixel squared error (averaged across channels)."""
     # [H,W] float32
     err = np.mean(np.square(x_rgb01 - xhat_rgb01), axis=2)
-
     # Normalize for visualization.
-    # Use a high percentile so a single hot pixel doesn't wash out the heatmap.
     p99 = float(np.percentile(err, 99.0))
     denom = (p99 if p99 > 1e-12 else float(err.max())) + 1e-12
     err_norm = np.clip(err / denom, 0.0, 1.0)
-
     # Convert to colormap.
     err_u8 = np.clip(err_norm * 255.0, 0.0, 255.0).astype(np.uint8)
     return cv2.applyColorMap(err_u8, cv2.COLORMAP_JET)
+
+
+def _largest_blob_area(err_map: np.ndarray, *, pixel_error_threshold: float, connectivity: int) -> int:
+    mask = (err_map > float(pixel_error_threshold)).astype(np.uint8)
+    conn = 8 if int(connectivity) == 8 else 4
+    n_labels, _, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=conn)
+    if n_labels <= 1:
+        return 0
+    return int(np.max(stats[1:, cv2.CC_STAT_AREA]))
 
 
 def make_notifier(cfg: Dict[str, Any]) -> Notifier:
@@ -123,11 +135,6 @@ def make_notifier(cfg: Dict[str, Any]) -> Notifier:
 
 
 def _safe_notify(notifier: Notifier, logger: JsonlLogger, title: str, message: str) -> None:
-    """Send a notification without crashing the monitor.
-
-    If Slack/email is misconfigured or temporarily unavailable, we log an error
-    and continue rather than terminating the monitoring loop.
-    """
     try:
         notifier.notify(title, message)
     except Exception as e:
@@ -141,8 +148,8 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
     cam_cfg = cfg["camera"]
     roi_cfg = dict(cfg.get("roi", {}) or {})
     scoring_cfg = dict(cfg.get("scoring", {}) or {})
+    heatmap_cfg = dict(cfg.get("heatmap_trigger", {}) or {})
 
-    # Set up logger early so we can record artifact/config errors.
     logger = JsonlLogger(Path(paths["logs_dir"]) / "events.jsonl")
     notifier = make_notifier(cfg)
 
@@ -173,7 +180,7 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
         raise SystemExit(msg)
 
     try:
-        threshold, percentile = _load_threshold(model_dir)
+        threshold, percentile, threshold_extras = _load_threshold(model_dir)
     except Exception as e:
         msg = (
             "Leak monitor startup failed: could not load threshold artifact.\n"
@@ -190,7 +197,6 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
         )
         _safe_notify(notifier, logger, "Leak monitor: startup failed", msg)
         raise SystemExit(msg)
-
     # Load TF model once.
     try:
         model = tf.keras.models.load_model(model_path)
@@ -210,6 +216,29 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
         )
         _safe_notify(notifier, logger, "Leak monitor: startup failed", msg)
         raise SystemExit(msg)
+
+    heatmap_enabled_cfg = bool(heatmap_cfg.get("enabled", True))
+    heatmap_enabled_model = bool(threshold_extras.get("heatmap_trigger_enabled", False))
+
+    pixel_error_threshold = threshold_extras.get("pixel_error_threshold")
+    blob_area_threshold = threshold_extras.get("blob_area_threshold")
+    connectivity = int(heatmap_cfg.get("connectivity", threshold_extras.get("connectivity", 8)))
+    min_blob_area = float(heatmap_cfg.get("min_blob_area", threshold_extras.get("min_blob_area", 16)))
+
+    heatmap_ready = (
+        heatmap_enabled_cfg
+        and heatmap_enabled_model
+        and pixel_error_threshold is not None
+        and blob_area_threshold is not None
+    )
+
+    if heatmap_enabled_cfg and not heatmap_ready:
+        logger.log(
+            "startup_warning",
+            component="monitor",
+            reason="heatmap_trigger_disabled",
+            message="Heatmap trigger requested but thresholds were not found in model/threshold.json. Retrain to enable.",
+        )
 
     camera = Camera(
         CameraConfig(
@@ -244,11 +273,7 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
         save_recon = bool(recon_cfg)
         save_heatmap = bool(mon_cfg.get("save_error_heatmap", True))
 
-    # Save the *resized* input frame (at model resolution) alongside reconstruction artifacts.
-    # This makes it much easier to compare reconstruction/heatmap without having to manually resize.
     save_input_resized = bool(mon_cfg.get("save_input_resized", True))
-
-    # Optional side-by-side diagnostic panel (input | reconstruction | heatmap).
     save_compare = bool(mon_cfg.get("save_compare_image", True))
 
     save_ctx = dict(mon_cfg.get("save_context", {}) or {})
@@ -273,6 +298,11 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
         scoring_method=str(scoring_cfg.get("method", "mean")),
         topk_percent=float(scoring_cfg.get("topk_percent", 1.0)),
         topk_min_pixels=int(scoring_cfg.get("topk_min_pixels", 100)),
+        heatmap_trigger_enabled=bool(heatmap_ready),
+        pixel_error_threshold=float(pixel_error_threshold) if heatmap_ready else None,
+        blob_area_threshold=float(blob_area_threshold) if heatmap_ready else None,
+        connectivity=int(connectivity),
+        min_blob_area=float(min_blob_area),
         roi=roi_cfg if roi_cfg else None,
         model_path=str(model_path.resolve()),
         threshold_path=str(threshold_path.resolve()),
@@ -297,13 +327,10 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
             now = time.time()
 
             if not ok or frame_bgr is None:
-                # Camera failure path
                 if now - last_ok_frame_ts > camera_down_s and not camera_down_alert_sent:
                     msg = f"Camera has not produced frames for {int(now - last_ok_frame_ts)}s."
                     logger.log("camera_error", message=msg)
-
                     _safe_notify(notifier, logger, "Leak monitor: camera feed down", msg)
-
                     camera_down_alert_sent = True
                 time.sleep(1.0)
                 continue
@@ -319,8 +346,7 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
 
             x = _preprocess_frame_bgr(frame_roi, int(img_cfg["width"]), int(img_cfg["height"]))
             x_tf = tf.convert_to_tensor(x, dtype=tf.float32)
-
-            # Single forward pass for both scoring and (optionally) saving recon/heatmap on alert.
+            
             xhat_tf = model(x_tf, training=False)
             score_tf = score_from_reconstruction(
                 x_tf,
@@ -330,14 +356,26 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
                 topk_min_pixels=int(scoring_cfg.get("topk_min_pixels", 100)),
             )
             score = float(score_tf.numpy()[0])
+            score_triggered = score > threshold
 
-            is_anom = score > threshold
+            heatmap_triggered = False
+            largest_blob_area = 0
+            if heatmap_ready:
+                err_map = reconstruction_error_map(x_tf, xhat_tf).numpy()[0]
+                largest_blob_area = _largest_blob_area(
+                    err_map,
+                    pixel_error_threshold=float(pixel_error_threshold),
+                    connectivity=connectivity,
+                )
+                heat_blob_thr = max(float(blob_area_threshold), float(min_blob_area))
+                heatmap_triggered = float(largest_blob_area) >= heat_blob_thr
+
+            is_anom = score_triggered or heatmap_triggered
             if is_anom:
                 consecutive_anomalies += 1
             else:
                 consecutive_anomalies = 0
 
-            # Heartbeat logging (avoid gigantic logs)
             if now - last_heartbeat_ts >= heartbeat_s:
                 cooldown_remaining_s = max(0.0, cooldown_s - (now - last_alert_ts))
                 logger.log(
@@ -345,6 +383,10 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
                     mode=mode,
                     score=score,
                     threshold=threshold,
+                    score_triggered=score_triggered,
+                    heatmap_triggered=heatmap_triggered,
+                    largest_blob_area=largest_blob_area if heatmap_ready else None,
+                    blob_area_threshold=max(float(blob_area_threshold), float(min_blob_area)) if heatmap_ready else None,
                     is_anomaly=is_anom,
                     consecutive_anomalies=consecutive_anomalies,
                     consecutive_needed=consecutive_needed,
@@ -359,13 +401,9 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
 
             if should_trigger and cooldown_ok:
                 saved_paths = []
-
-                # Stable event ID to group all saved files from this detection.
                 event_id = now_timestamp()
-
                 # Save pre-context frames first
                 if ctx_enabled and ctx_pre > 0 and len(ctx_buffer) > 0:
-                    # Save oldest -> newest
                     for i, f in enumerate(list(ctx_buffer)[-ctx_pre:]):
                         p = save_bgr_image(
                             f,
@@ -377,7 +415,6 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
                         )
                         saved_paths.append(str(p.resolve()))
 
-                # Save anomalous frame (camera resolution)
                 extra_suffix = f"score{score:.6f}"
                 saved_anom = save_bgr_image(
                     frame_roi,
@@ -392,10 +429,9 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
                 # Save reconstruction + error map at model resolution (helps debugging)
                 if save_recon or save_heatmap or save_compare:
                     try:
-                        xhat = xhat_tf.numpy()[0]  # [H,W,3] RGB float in [0,1]
-                        xin = x[0]  # [H,W,3] RGB float in [0,1]
+                        xhat = xhat_tf.numpy()[0]
+                        xin = x[0]
 
-                        # Save the model-resolution input frame for easier visual triage.
                         xin_bgr = _rgb01_to_bgr_uint8(xin)
                         if save_input_resized:
                             p_in = save_bgr_image(
@@ -443,7 +479,7 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
                                 panels.append(recon_bgr)
                             if heat_bgr is not None:
                                 panels.append(heat_bgr)
-
+                            
                             # Guard against unexpected shape mismatches.
                             heights = {p.shape[0] for p in panels}
                             if len(heights) == 1:
@@ -465,7 +501,7 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
 
                     except Exception as e:
                         logger.log("reconstruction_save_error", error=str(e))
-
+                
                 # Save post-context frames (best effort)
                 if ctx_enabled and ctx_post > 0:
                     for i in range(ctx_post):
@@ -489,16 +525,29 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
                     event_id=event_id,
                     score=score,
                     threshold=threshold,
+                    score_triggered=score_triggered,
+                    heatmap_triggered=heatmap_triggered,
+                    largest_blob_area=largest_blob_area if heatmap_ready else None,
+                    blob_area_threshold=max(float(blob_area_threshold), float(min_blob_area)) if heatmap_ready else None,
                     consecutive_anomalies=consecutive_anomalies,
                     saved_paths=saved_paths,
                 )
+
+                trigger_labels = []
+                if score_triggered:
+                    trigger_labels.append("score")
+                if heatmap_triggered:
+                    trigger_labels.append("heatmap")
 
                 title = "Leak monitor: anomaly detected"
                 message = (
                     f"Anomaly detected on camera.\n"
                     f"- Event ID: {event_id}\n"
+                    f"- Trigger(s): {', '.join(trigger_labels) if trigger_labels else 'unknown'}\n"
                     f"- Score: {score:.6f}\n"
                     f"- Threshold (p{percentile}): {threshold:.6f}\n"
+                    f"- Largest heatmap blob area: {largest_blob_area if heatmap_ready else 'n/a'}\n"
+                    f"- Heatmap blob threshold: {max(float(blob_area_threshold), float(min_blob_area)) if heatmap_ready else 'n/a'}\n"
                     f"- Saved files: {', '.join(Path(p).name for p in saved_paths) if saved_paths else '(none)'}\n"
                     f"- Cooldown: {int(cooldown_s)}s\n"
                 )
