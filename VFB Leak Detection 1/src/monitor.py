@@ -426,6 +426,7 @@ def run_monitor(cfg: Dict[str, Any]) -> None:
                 )
                 saved_paths.append(str(saved_anom.resolve()))
 
+                # Save reconstruction + error map at model resolution (helps debugging)
                 if save_recon or save_heatmap or save_compare:
                     try:
                         xhat = xhat_tf.numpy()[0]
