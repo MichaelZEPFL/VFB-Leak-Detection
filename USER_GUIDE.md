@@ -256,6 +256,21 @@ Each panel is:
 
 ---
 
+## 7b) Manual anomaly-style snapshot (testing)
+
+If you want to generate one "as-if anomaly" evidence bundle from the current camera frame (for evaluation/testing), run:
+
+- `run_manual_anomaly_snapshot.bat`
+
+This writes files to `data/anomalies/` with the same artifact style used by actual anomaly alerts:
+- `anomaly_*.jpg`
+- `input_resized_*.jpg`
+- `reconstruction_*.jpg`
+- `error_heatmap_*.jpg`
+- `compare_*.jpg`
+
+---
+
 ## 8) Threshold calibration plot (error histogram)
 
 This plot helps you see whether the threshold looks reasonable and whether “normal” scores have drifted.
