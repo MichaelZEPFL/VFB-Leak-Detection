@@ -58,6 +58,8 @@ Double-clickable `.bat` files are provided for the common tasks:
 
 ```
 redox_leak_detection/
+  .venv/
+    ...python 3.11 virtual environment modules...
   config/
     config.yaml
   data/
