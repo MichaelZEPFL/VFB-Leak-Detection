@@ -25,6 +25,7 @@ It supports the workflow:
 - **Health check**: `scripts/health_check.py`
 - **Daily summary report**: `scripts/daily_summary.py`
 - **Manual anomaly-style snapshot**: `scripts/capture_anomaly_snapshot.py`
+- **Post-capture ROI crop for normal dataset**: `scripts/apply_roi_to_normals.py`
 
 ### No-code launchers (Windows)
 Double-clickable `.bat` files are provided for the common tasks:
@@ -32,6 +33,7 @@ Double-clickable `.bat` files are provided for the common tasks:
 - `run_visualize_reconstruction.bat`, `run_threshold_calibration.bat`
 - `run_health_check.bat`, `run_daily_summary.bat`
 - `run_manual_anomaly_snapshot.bat`
+- `run_apply_roi_to_normals.bat`
 - `set_mode_CAPTURE.bat`, `set_mode_MONITOR.bat`, `set_mode_OFF.bat`
 
 ---
@@ -173,6 +175,10 @@ Stop capturing by closing the window (or press `Ctrl+C`). You can also switch th
 
 ### 4) Train the model
 
+Optional before training (if capture-time ROI was OFF or you want a different ROI):
+- Double-click `run_apply_roi_to_normals.bat`
+- This compares ROI in `config/config.yaml` vs script-defined ROI and applies the script ROI crop to `data/normal` images (writes to `data/normal_roi_adjusted` by default).
+
 Double-click:
 - `run_train.bat`
 
@@ -180,6 +186,8 @@ This produces:
 - `model\autoencoder.keras`
 - `model\threshold.json`
 - `model\stats.json`
+
+If Slack is configured, training completion also sends a notification.
 
 ### 5) Sanity-check reconstructions (recommended)
 
