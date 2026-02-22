@@ -18,6 +18,7 @@ from pathlib import Path
 
 from src.config import ensure_directories, load_config
 from src.logging_utils import JsonlLogger
+from src.notify import EmailConfig, Notifier, SlackConfig
 from src.train import train_autoencoder
 
 
@@ -34,6 +35,38 @@ def main() -> None:
 
     result = train_autoencoder(cfg)
     logger.log("training_complete", **result)
+
+    # Best-effort completion notification (Slack preferred, email fallback if enabled).
+    try:
+        slack_cfg = cfg["notify"]["slack"]
+        email_cfg = cfg["notify"]["email"]
+        notifier = Notifier(
+            slack=SlackConfig(
+                enabled=bool(slack_cfg.get("enabled", True)),
+                webhook_url=str(slack_cfg.get("webhook_url", "") or "").strip(),
+            ),
+            email=EmailConfig(
+                enabled=bool(email_cfg.get("enabled", False)),
+                smtp_host=str(email_cfg.get("smtp_host", "")),
+                smtp_port=int(email_cfg.get("smtp_port", 587)),
+                smtp_user=str(email_cfg.get("smtp_user", "")),
+                smtp_password=str(email_cfg.get("smtp_password", "")),
+                from_addr=str(email_cfg.get("from_addr", "")),
+                to_addrs=list(email_cfg.get("to_addrs", [])),
+                use_tls=bool(email_cfg.get("use_tls", True)),
+            ),
+        )
+        notifier.notify(
+            "Leak monitor: training complete",
+            (
+                "Autoencoder training completed successfully.\n"
+                f"- Model: {result['model_path']}\n"
+                f"- Threshold (p{result['percentile']}): {result['threshold']:.6f}\n"
+                f"- Stats: {result['stats_path']}"
+            ),
+        )
+    except Exception as e:
+        logger.log("notify_error", component="train_autoencoder", error=str(e), title="training_complete")
 
     print("Training complete.")
     print(f"Model saved to: {result['model_path']}")
