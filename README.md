@@ -19,7 +19,7 @@ It supports the workflow:
 - **Train model**: `scripts/train_autoencoder.py`
 - **Monitor**: `scripts/monitor.py` (only runs detection when mode is `MONITOR`)
 
-### Human-facing tools (new)
+### Human-facing tools
 - **Reconstruction visualization**: `scripts/visualize_reconstruction.py`
 - **Threshold calibration histogram + stats**: `scripts/threshold_calibration.py`
 - **Health check**: `scripts/health_check.py`
@@ -309,6 +309,12 @@ python .\scripts\capture_anomaly_snapshot.py    # Captures one current camera fr
 python .\scripts\daily_summary.py                # Summarizes recent events from logs/events.jsonl:
                                                  # counts anomalies, camera errors, and basic run stats (optionally plots).
 python .\scripts\daily_summary.py --date 2026-01-27 # Same summary, but for a specific date (YYYY-MM-DD).
+
+# Image modification
+python "VFB Leak Detection 1/scripts/apply_roi_to_normals.py" # crop images in the /data/normal folder using the script’s ROI. Applies on top of any possible previous ROI (double crop).
+                                                              # writes the results to data/normal_roi_adjusted
+                                                              # use --overwrite to save cropped pictures directly into /data/normal, move originals to data/normal_backup_before_roi (once per filename)
+                                                              # --dry_run to see what the file will do without changing anything
 ```
 
 ---
