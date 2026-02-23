@@ -300,7 +300,7 @@ python .\scripts\health_check.py --save_snapshot # Runs quick diagnostics before
                                                  # Optionally saves a current camera snapshot for debugging.
 
 # Manual anomaly-style snapshot (testing utility)
-python .\scripts\capture_anomaly_snapshot.py    # Captures one current camera frame and writes the same evidence artifact set
+python .\scripts\capture_anomaly_snapshot.py     # Captures one current camera frame and writes the same evidence artifact set
                                                  # used during anomaly alerts: anomaly image, input_resized, reconstruction,
                                                  # error_heatmap, and compare panel.
                                                  # Useful for evaluation/testing without waiting for a real anomaly event.
